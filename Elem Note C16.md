@@ -37,3 +37,50 @@ Qualifications:
 + For any given application, the degree of sparseness/denseness depends on the unknown true target function, and the chosen dictionary \\( \mathcal{T} \\).
 + The notion of sparse versus dense is relative to the size of the training data set and/or the noise-to-signal ratio (NSR). Larger training sets allow us to estimate coefficients with smaller standard errors. Likewise in situations with small NSR, we can identify more nonzero coefficients with a given sample size than in situations where the NSR is larger.
 + The size of the dictionary plays a role as well. Increasing the size of the dictionary may lead to a sparser representation of our function, but the search problem becomes more difficult leading to higher variance.
+
+#### Regularization Paths
+
+The sequence of boosted classifiers form an \\( L_1 \\)-regularized monotone path to a margin-maximizing solution.
+
+Of course the margin-maximizing end of the path can be a very poor, overfit solution. Early stopping amounts to picking a point along the path, and should be done with the aid of a validation dataset.
+
+### Learning Ensembles
+
+The learning process can be broken down into two stages:
+
++ A finite dictionary \\( \mathcal{T}_L = \{ T_1(x), T_2(x), ..., T_M(x) \} \\) of basis functions in induced from the training data.
++ A family of functions \\( f_\lambda(x) \\) is built by fitting a lasso path in this dictionary:
+\\[ \alpha(\lambda) = \mathrm{arg} \underset{\alpha}{\operatorname{min}} \sum_{i=1}^N L[ y_i, \alpha_0 + \sum_{m=1}^M \alpha_m T_m(x_i) ] + \lambda \sum_{m=1}^M |\alpha_m| \\]
+
+#### Learning a Good Ensemble
+
+A good collection of ensembles \\( \mathcal{T}_L \\) covers the space well in places where they are needed, and are sufficiently different from each other for the post-processor to be effective.
+
+A measure of (lack of) relevance that uses the loss function to evaluate on the training data:
+\\[ Q(\gamma) = \underset{c_0, c_1}{\operatorname{min}} \sum_{i=1}^N L(y_i, c_0 + c_1 b(x_i; \gamma)) \\]
+
+If a single basis function were to be selected, it would be the global minimizer \\( \gamma^* = \mathrm{arg} \min_{\gamma \in \Gamma} Q(\gamma) \\). Introducing randomness in the selection of \\(\gamma\\) would necessarily produce less optimal values with \\( Q(\gamma) \le Q(\gamma^*) \\). A natural measure of the characteristic *width* \\( \sigma \\) of the sampling scheme \\( \mathcal{S} \\),
+\\[ \sigma = \mathrm{E}_\mathcal{S} [Q(\gamma) - Q(\gamma^*)] \\]
+
++ \\( \sigma \\) too narrow suggests too many of the \\(b(x; \gamma_m)\\) look alike, and similar to \\(b(x; \gamma^*)\\);
++ \\( \sigma \\) too wide implies a large spread in the \\(b(x; \gamma_m)\\), but possibly consisting of many irrelevant cases.
+
+**ISLE Ensemble Generation**
+
+1. \\( f_0(x) = \mathrm{arg} \min_c \sum_{i=1}^N L(y_i, c)\\)
+2. For \\( m = 1 \\) to \\(M\\) do
+  a) \\( \gamma_m = \mathrm{arg} \min_\gamma \sum_{i \in S_m(\eta)} L(y_i, f_{m-1}(x_i) + b(x_i;\gamma))\\)
+  b) \\( f_m(x) = f_{m-1}(x) + \nu b(x; \gamma_m) \\)
+3. \\( \mathcal{T}_{ISLE} = \{ b(x;\gamma_1), b(x;\gamma_2), ..., b(x;\gamma_M) \} \\)
+
+\\(S_m(\eta)\\) refers to a subsample of \\(N \cdot \eta \;(\eta \in (0, 1])\\) of the training observations, typically *without* replacement. Simulations suggests picking \\( \eta \le \frac{1}{2} \\), and for large \\(N\\) picking \\( \eta \sim 1 / \sqrt{N} \\). Reducing \\(\eta\\) increases the randomness, and hence the width \\(\sigma\\). The parameter \\(\nu \in [0,1]\\) introduces *memory* into the randomization process.
+
+The authors recommend values \\( \nu=0.1 \\) and \\( \eta \le \frac{1}{2} \\), and call their combined procedure *Importance sampled learning ensemble* (ISLE).
+
+#### Rule Ensembles
+
+From a tree we can generate rules, which describe each node from the root to the leaves. Then all the rules from all the trees in a ensemble can be treated as a new ensemble. There are some advantages to doing so.
+
++ The space of models is enlarged, and can lead to improved performance.
++ Rules are easier to interpret than trees, so there is the potential for a simplified model.
++ It is often natural to augment \\( \mathcal{T}_{RULE} \\) by including each variable \\( X_j \\) separately as well, thus allowing the ensemble to model linear functions well.
